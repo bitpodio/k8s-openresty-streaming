@@ -117,33 +117,9 @@ RUN apk add --no-cache --virtual .build-deps \
         --lua-suffix=jit-2.1.0-beta3 \
         --with-lua-include=/usr/local/openresty/luajit/include/luajit-2.1 \
     && make build \
-    && make install \
-    && cd /tmp \
-    && rm -rf luarocks-${RESTY_LUAROCKS_VERSION} luarocks-${RESTY_LUAROCKS_VERSION}.tar.gz \
-    && apk add --no-cache --virtual .gettext gettext \
-    && mv /usr/bin/envsubst /tmp/ \
-    && runDeps="$( \
-        scanelf --needed --nobanner /tmp/envsubst \
-            | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-            | sort -u \
-            | xargs -r apk info --installed \
-            | sort -u \
-    )" \
-    && apk add --no-cache --virtual $runDeps \
-    && mv /tmp/envsubst /usr/local/bin/ \
-    && ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log \
-    && ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log
+    && make install
 
-RUN sudo -H /usr/local/openresty/luajit/bin/luarocks install lua-resty-http \
-    && sudo -H /usr/local/openresty/luajit/bin/luarocks install lua-resty-auto-ssl \
-    && sudo -H /usr/local/openresty/luajit/bin/luarocks install lua-iconv
-
-RUN openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-  -subj '/CN=sni-support-required-for-valid-ssl' \
-  -keyout /etc/ssl/resty-auto-ssl-fallback.key \
-  -out /etc/ssl/resty-auto-ssl-fallback.crt
-
-ADD https://github.com/duythongle/k8s-openresty-streaming/raw/master/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ADD https://github.com/bitpodio/k8s-openresty-streaming/raw/dev/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
 #ADD conf.d /usr/local/openresty/nginx/conf/conf.d
 
 RUN mkdir -p /tmp/telize-v${TELIZE_VERSION} \
@@ -152,14 +128,6 @@ RUN mkdir -p /tmp/telize-v${TELIZE_VERSION} \
   && cp /tmp/telize-v${TELIZE_VERSION}/country-code3.conf /usr/local/openresty/nginx/conf \
   && cp /tmp/telize-v${TELIZE_VERSION}/timezone-offset.conf /usr/local/openresty/nginx/conf \
   && cp /tmp/telize-v${TELIZE_VERSION}/telize.conf /usr/local/openresty/nginx/conf
-
-RUN mkdir -p /var/db/GeoIP \
-  && curl -fSL https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz | \
-  tar xzf - -C /var/db/GeoIP --strip-components=1 \
-  && curl -fSL https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz | \
-  tar xzf - -C /var/db/GeoIP --strip-components=1
-
-RUN rm -rf /tmp/* && apk del .build-deps .gettext
 
 ENV PATH=$PATH:/usr/local/openresty/luajit/bin:/usr/local/openresty/nginx/sbin:/usr/local/openresty/bin
 CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]
